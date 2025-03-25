@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 func main() {
@@ -15,7 +16,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	token, err := GetToken(os.Args[1])
+	token, err := GetToken(os.Args[1], time.Now().Unix())
 	if err == nil {
 		fmt.Print(token)
 	} else {

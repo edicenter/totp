@@ -6,45 +6,48 @@ import (
 	"crypto/sha1"
 	"encoding/base32"
 	"encoding/binary"
+	"fmt"
 	"math"
-	"strconv"
-	"time"
 )
 
-var period = 30
-var digits = 6
+var passwordPeriodSeconds = 30
 
-// GetToken calculates time-based one-time password based on `secret` and time
-func GetToken(secret string) (string, error) {
-	t := time.Now().Unix()
-	interval := uint64(math.Floor(float64(t) / float64(period)))
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, interval)
+// GetToken calculates time-based one-time password based on `secret` and time.
+// `secret` is a shared secret between client and server.
+func GetToken(secret string, unixTime int64) (string, error) {
 
-	// fmt.Printf("interval=%v; decode secret=%x; buf=%x\n", interval, secretBytes, buf)
+	// 8-byte counter value, the moving factor.  This counter
+	// MUST be synchronized between the HOTP generator (client)
+	// and the HOTP validator (server).
+	counter := uint64(math.Floor(float64(unixTime) / float64(passwordPeriodSeconds)))
+
+	// HOTP: An HMAC-Based One-Time Password Algorithm
+	// https://datatracker.ietf.org/doc/html/rfc4226
+
+	counterBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(counterBytes, counter)
 	secretBytes, err := base32.StdEncoding.DecodeString(secret)
 	if err != nil {
 		return "", err
 	}
-
+	// Step 1: Generate an HMAC-SHA-1 value
+	// Let HS = HMAC-SHA-1(SECRET,COUNTER)
+	// HS is a 20-byte string
 	mac := hmac.New(sha1.New, secretBytes)
-	mac.Write(buf)
-	h := mac.Sum(nil)
+	mac.Write(counterBytes)
+	HS := mac.Sum(nil)
 
-	// fmt.Printf("hash=%x\n", h)
+	offset := HS[len(HS)-1] & 15
 
-	o := h[19] & 15
+	// https://datatracker.ietf.org/doc/html/rfc4226#section-5.4
+	// We treat the dynamic binary code as a 31-bit, unsigned, big-endian integer;
+	binCode := binary.BigEndian.Uint32(HS[offset : offset+4])
 
-	// fmt.Printf("o=%v (%[1]T)\n", o)
+	// the first byte is masked with a 0x7f.
+	// We then take this number modulo 1,000,000 (10^6) to generate the 6-digit HOTP value.
+	hotp := (binCode & 0x7fffffff) % 1000000
 
-	unpackUint32 := binary.BigEndian.Uint32(h[o : o+4])
+	password := fmt.Sprintf("%06d", hotp)
 
-	// fmt.Printf("unpackUint32=%v\n", unpackUint32)
-
-	token := (unpackUint32 & 0x7fffffff) % 1000000
-
-	return strconv.FormatUint(uint64(token), 10), nil
-
-	// fmt.Printf("token=%v", token)
-
+	return password, nil
 }
