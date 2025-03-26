@@ -12,9 +12,9 @@ import (
 
 var passwordPeriodSeconds = 30
 
-// GetToken calculates time-based one-time password based on `secret` and time.
+// GetTOTP calculates time-based one-time password based on `secret` and time.
 // `secret` is a shared secret between client and server.
-func GetToken(secret string, unixTime int64) (string, error) {
+func GetTOTP(secret string, unixTime int64) (string, error) {
 
 	// 8-byte counter value, the moving factor.  This counter
 	// MUST be synchronized between the HOTP generator (client)

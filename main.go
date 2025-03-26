@@ -16,9 +16,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	token, err := GetToken(os.Args[1], time.Now().Unix())
+	totp, err := GetTOTP(os.Args[1], time.Now().Unix())
 	if err == nil {
-		fmt.Print(token)
+		fmt.Print(totp)
 	} else {
 		fmt.Fprint(os.Stderr, err)
 	}
